@@ -8,6 +8,11 @@ export interface User {
   level: number
   streak: number
   joinDate: string
+  bio?: string
+  phone?: string
+  university?: string
+  branch?: string
+  graduationYear?: number
   createdAt?: Date
 }
 
