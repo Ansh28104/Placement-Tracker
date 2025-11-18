@@ -39,6 +39,8 @@ interface Resume {
   downloadCount: number
   fileSize: string
   notes: string
+  fileName?: string
+  fileData?: string
 }
 
 export default function ResumePage() {
@@ -108,6 +110,8 @@ export default function ResumePage() {
   const [typeFilter, setTypeFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isDragActive, setIsDragActive] = useState(false)
   const [newResume, setNewResume] = useState({
     title: "",
     type: "tailored",
@@ -166,6 +170,37 @@ export default function ResumePage() {
   })
 
   const handleAddResume = () => {
+    if (!newResume.title.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a resume title.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!newResume.targetRole.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a target role.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!selectedFile) {
+      toast({
+        title: "Error",
+        description: "Please upload a resume file.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Calculate file size in KB
+    const fileSizeKB = Math.round(selectedFile.size / 1024)
+    const fileSize = fileSizeKB > 1024 ? `${(fileSizeKB / 1024).toFixed(1)} MB` : `${fileSizeKB} KB`
+
     const resume: Resume = {
       ...newResume,
       id: resumes.length + 1,
@@ -176,7 +211,8 @@ export default function ResumePage() {
       feedback: [],
       rating: 0,
       downloadCount: 0,
-      fileSize: "0 KB",
+      fileSize,
+      fileName: selectedFile.name,
     }
 
     setResumes([...resumes, resume])
@@ -187,11 +223,66 @@ export default function ResumePage() {
       company: "",
       notes: "",
     })
+    setSelectedFile(null)
     setIsAddDialogOpen(false)
     toast({
       title: "Resume added!",
-      description: "New resume has been added to your collection.",
+      description: `${selectedFile.name} has been uploaded successfully.`,
     })
+  }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (files && files.length > 0) {
+      const file = files[0]
+      validateAndSetFile(file)
+    }
+  }
+
+  const validateAndSetFile = (file: File) => {
+    const validTypes = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+    const maxSize = 5 * 1024 * 1024 // 5MB
+
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a PDF or Word document (.pdf, .doc, .docx)",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (file.size > maxSize) {
+      toast({
+        title: "File too large",
+        description: "Please upload a file smaller than 5MB",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSelectedFile(file)
+  }
+
+  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setIsDragActive(true)
+    } else if (e.type === "dragleave") {
+      setIsDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragActive(false)
+
+    const files = e.dataTransfer.files
+    if (files && files.length > 0) {
+      validateAndSetFile(files[0])
+    }
   }
 
   const updateResumeStatus = (resumeId: number, newStatus: "active" | "draft" | "archived") => {
@@ -213,15 +304,40 @@ export default function ResumePage() {
   }
 
   const handleDownload = (resumeId: number) => {
-    setResumes(
-      resumes.map((resume) =>
-        resume.id === resumeId ? { ...resume, downloadCount: resume.downloadCount + 1 } : resume,
-      ),
-    )
-    toast({
-      title: "Resume downloaded!",
-      description: "Resume has been downloaded successfully.",
-    })
+    const resume = resumes.find((r) => r.id === resumeId)
+    if (resume) {
+      // Create a simple text file for download (in production, this would be the actual file)
+      const element = document.createElement("a")
+      const file = new Blob(
+        [
+          `Resume: ${resume.title}\n` +
+          `Target Role: ${resume.targetRole}\n` +
+          `${resume.company ? `Company: ${resume.company}\n` : ""}` +
+          `Type: ${resume.type}\n` +
+          `Version: ${resume.version}\n` +
+          `Status: ${resume.status}\n` +
+          `Modified: ${resume.lastModified}\n\n` +
+          `Notes:\n${resume.notes || "No notes"}\n\n` +
+          `Feedback:\n${resume.feedback.join("\n") || "No feedback yet"}`
+        ],
+        { type: "text/plain" }
+      )
+      element.href = URL.createObjectURL(file)
+      element.download = resume.fileName || `${resume.title.replace(/\s+/g, "_")}.txt`
+      document.body.appendChild(element)
+      element.click()
+      document.body.removeChild(element)
+
+      setResumes(
+        resumes.map((r) =>
+          r.id === resumeId ? { ...r, downloadCount: r.downloadCount + 1 } : r,
+        ),
+      )
+      toast({
+        title: "Resume downloaded!",
+        description: `${resume.fileName || resume.title} has been downloaded successfully.`,
+      })
+    }
   }
 
   const stats = {
@@ -302,6 +418,56 @@ export default function ResumePage() {
                       placeholder="e.g., Google"
                     />
                   </div>
+
+                  {/* File Upload Section */}
+                  <div className="sm:col-span-2">
+                    <Label>Resume File (PDF or Word)</Label>
+                    <div
+                      onDragEnter={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDragOver={handleDrag}
+                      onDrop={handleDrop}
+                      className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                        isDragActive
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-300 hover:border-gray-400 bg-gray-50"
+                      }`}
+                    >
+                      <input
+                        id="file-upload"
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                      <label htmlFor="file-upload" className="cursor-pointer">
+                        <div className="flex flex-col items-center">
+                          <FileText className="w-8 h-8 text-gray-400 mb-2" />
+                          <p className="text-sm font-medium text-gray-900">
+                            {selectedFile ? selectedFile.name : "Drag and drop your resume here"}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1">or click to select a file</p>
+                          <p className="text-xs text-gray-500 mt-2">PDF or Word documents (max 5MB)</p>
+                        </div>
+                      </label>
+                    </div>
+                    {selectedFile && (
+                      <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
+                        <p className="text-sm text-green-700">
+                          ✓ File selected: {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedFile(null)}
+                          className="text-red-600 mt-1"
+                        >
+                          Remove file
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="sm:col-span-2">
                     <Label htmlFor="notes">Notes</Label>
                     <Textarea
@@ -314,7 +480,13 @@ export default function ResumePage() {
                   </div>
                 </div>
                 <div className="flex justify-end space-x-2 mt-4">
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsAddDialogOpen(false)
+                      setSelectedFile(null)
+                    }}
+                  >
                     Cancel
                   </Button>
                   <Button onClick={handleAddResume}>Add Resume</Button>
@@ -459,6 +631,13 @@ export default function ResumePage() {
                         <span className="text-sm text-gray-600 ml-1">({resume.rating})</span>
                       </div>
                     </div>
+
+                    {resume.fileName && (
+                      <div className="flex items-center text-sm text-gray-600 bg-blue-50 p-2 rounded">
+                        <FileText className="w-4 h-4 mr-2 text-blue-600" />
+                        <span className="text-blue-700 font-medium truncate">{resume.fileName}</span>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between text-sm text-gray-600">
                       <div className="flex items-center">
