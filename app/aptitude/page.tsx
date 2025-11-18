@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Brain, Plus, Search, Calendar, Clock, CheckCircle, Target, TrendingUp, BookOpen } from "lucide-react"
+import { Brain, Plus, Search, Calendar, Clock, CheckCircle, Target, TrendingUp, BookOpen, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface AptitudeTest {
@@ -27,6 +27,14 @@ interface AptitudeTest {
   completedDate?: string
   status: "completed" | "in-progress" | "planned"
   notes: string
+}
+
+interface Question {
+  id: number
+  text: string
+  options: string[]
+  correct: number
+  userAnswer?: number
 }
 
 export default function AptitudePage() {
@@ -107,6 +115,11 @@ export default function AptitudePage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [difficultyFilter, setDifficultyFilter] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isPracticeDialogOpen, setIsPracticeDialogOpen] = useState(false)
+  const [selectedTestForPractice, setSelectedTestForPractice] = useState<AptitudeTest | null>(null)
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const [practiceAnswers, setPracticeAnswers] = useState<(number | null)[]>([])
+  const [practiceSampleQuestions, setPracticeSampleQuestions] = useState<Question[]>([])
   const [newTest, setNewTest] = useState({
     title: "",
     category: "quantitative",
@@ -174,6 +187,143 @@ export default function AptitudePage() {
   const safeNumber = (value: any, defaultValue: number = 0): number => {
     const num = Number(value)
     return Number.isNaN(num) ? defaultValue : num
+  }
+
+  // Sample questions database
+  const generateSampleQuestions = (test: AptitudeTest): Question[] => {
+    const questions: Question[] = []
+
+    if (test.category === "quantitative") {
+      questions.push(
+        {
+          id: 1,
+          text: "If a number is increased by 20%, and then decreased by 20%, what is the net change?",
+          options: ["No change", "4% decrease", "4% increase", "20% decrease"],
+          correct: 1,
+        },
+        {
+          id: 2,
+          text: "What is the probability of getting a sum of 7 when rolling two dice?",
+          options: ["1/6", "1/12", "2/12", "1/36"],
+          correct: 0,
+        },
+        {
+          id: 3,
+          text: "If the ratio of A:B is 3:4 and B:C is 2:5, what is A:B:C?",
+          options: ["3:4:10", "6:8:20", "3:2:5", "4:3:5"],
+          correct: 1,
+        },
+      )
+    } else if (test.category === "logical") {
+      questions.push(
+        {
+          id: 1,
+          text: "Find the missing number in the series: 2, 6, 12, 20, ?",
+          options: ["28", "30", "32", "36"],
+          correct: 1,
+        },
+        {
+          id: 2,
+          text: "If all cats are animals, and Fluffy is a cat, then Fluffy is an animal. This is an example of:",
+          options: ["Deductive reasoning", "Inductive reasoning", "Abductive reasoning", "Analogical reasoning"],
+          correct: 0,
+        },
+        {
+          id: 3,
+          text: "Which figure completes the pattern? (Pattern based logic)",
+          options: ["Option A", "Option B", "Option C", "Option D"],
+          correct: 2,
+        },
+      )
+    } else if (test.category === "verbal") {
+      questions.push(
+        {
+          id: 1,
+          text: "Choose the word that is most nearly opposite in meaning to EPHEMERAL",
+          options: ["Lasting", "Enduring", "Permanent", "All of the above"],
+          correct: 3,
+        },
+        {
+          id: 2,
+          text: "Select the correctly spelled word:",
+          options: ["Ocassion", "Occasion", "Ocasion", "Occassion"],
+          correct: 1,
+        },
+        {
+          id: 3,
+          text: "What does the phrase 'to burn bridges' mean?",
+          options: ["To set fires", "To destroy relationships", "To create problems", "To start new projects"],
+          correct: 1,
+        },
+      )
+    } else {
+      questions.push(
+        {
+          id: 1,
+          text: "Which planet is known as the Red Planet?",
+          options: ["Venus", "Mars", "Jupiter", "Saturn"],
+          correct: 1,
+        },
+        {
+          id: 2,
+          text: "Who was the first President of India?",
+          options: ["Jawaharlal Nehru", "Dr. Rajendra Prasad", "Dr. S. Radhakrishnan", "Pratibha Patil"],
+          correct: 1,
+        },
+        {
+          id: 3,
+          text: "In which year did the Titanic sink?",
+          options: ["1912", "1915", "1920", "1900"],
+          correct: 0,
+        },
+      )
+    }
+
+    return questions
+  }
+
+  const openPracticeMode = (test: AptitudeTest) => {
+    const questions = generateSampleQuestions(test)
+    setPracticeSampleQuestions(questions)
+    setSelectedTestForPractice(test)
+    setPracticeAnswers(new Array(questions.length).fill(null))
+    setCurrentQuestionIndex(0)
+    setIsPracticeDialogOpen(true)
+  }
+
+  const handlePracticeAnswer = (answerIndex: number) => {
+    const newAnswers = [...practiceAnswers]
+    newAnswers[currentQuestionIndex] = answerIndex
+    setPracticeAnswers(newAnswers)
+  }
+
+  const goToNextQuestion = () => {
+    if (currentQuestionIndex < practiceSampleQuestions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1)
+    }
+  }
+
+  const goToPreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1)
+    }
+  }
+
+  const submitPractice = () => {
+    const correctCount = practiceAnswers.filter(
+      (answer, idx) => answer === practiceSampleQuestions[idx].correct,
+    ).length
+    const score = Math.round((correctCount / practiceSampleQuestions.length) * 100)
+
+    toast({
+      title: "Practice Completed! 🎉",
+      description: `You scored ${score}% (${correctCount}/${practiceSampleQuestions.length} correct)`,
+    })
+
+    setIsPracticeDialogOpen(false)
+    setPracticeAnswers([])
+    setCurrentQuestionIndex(0)
+    setPracticeSampleQuestions([])
   }
 
   const filteredTests = tests.filter((test) => {
@@ -604,7 +754,12 @@ export default function AptitudePage() {
                           </Button>
                         )}
                       </div>
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openPracticeMode(test)}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
                         <BookOpen className="w-4 h-4 mr-1" />
                         Practice
                       </Button>
@@ -632,6 +787,125 @@ export default function AptitudePage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Practice Mode Dialog */}
+          <Dialog open={isPracticeDialogOpen} onOpenChange={setIsPracticeDialogOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-blue-600" />
+                  Practice Mode: {selectedTestForPractice?.title}
+                </DialogTitle>
+              </DialogHeader>
+
+              {selectedTestForPractice && practiceSampleQuestions.length > 0 && (
+                <div className="space-y-6">
+                  {/* Progress Bar */}
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="font-medium">
+                        Question {currentQuestionIndex + 1} of {practiceSampleQuestions.length}
+                      </span>
+                      <span className="text-gray-600">
+                        Answered: {practiceAnswers.filter((a) => a !== null).length}/{practiceSampleQuestions.length}
+                      </span>
+                    </div>
+                    <Progress value={((currentQuestionIndex + 1) / practiceSampleQuestions.length) * 100} className="h-2" />
+                  </div>
+
+                  {/* Current Question */}
+                  <div className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      {practiceSampleQuestions[currentQuestionIndex].text}
+                    </h3>
+
+                    {/* Options */}
+                    <div className="space-y-2">
+                      {practiceSampleQuestions[currentQuestionIndex].options.map((option, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handlePracticeAnswer(idx)}
+                          className={`w-full p-3 rounded-lg border-2 text-left transition-colors ${
+                            practiceAnswers[currentQuestionIndex] === idx
+                              ? "bg-blue-100 border-blue-500"
+                              : "bg-white border-gray-200 hover:border-blue-300"
+                          }`}
+                        >
+                          <span className="font-medium">
+                            {String.fromCharCode(65 + idx)}.
+                          </span>
+                          <span className="ml-2">{option}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Answer Indicator */}
+                  {practiceAnswers[currentQuestionIndex] !== null ? (
+                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 flex items-start gap-2">
+                      <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <span className="text-sm text-blue-700">
+                        You selected option {String.fromCharCode(65 + practiceAnswers[currentQuestionIndex])}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200 flex items-start gap-2">
+                      <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                      <span className="text-sm text-yellow-700">Select an option to answer this question</span>
+                    </div>
+                  )}
+
+                  {/* Navigation Buttons */}
+                  <div className="flex justify-between gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={goToPreviousQuestion}
+                      disabled={currentQuestionIndex === 0}
+                    >
+                      ← Previous
+                    </Button>
+
+                    <div className="flex gap-2 flex-wrap justify-center">
+                      {practiceSampleQuestions.map((_, idx) => (
+                        <Button
+                          key={idx}
+                          variant={currentQuestionIndex === idx ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentQuestionIndex(idx)}
+                          className={`w-10 h-10 p-0 ${
+                            practiceAnswers[idx] !== null ? "bg-green-100 text-green-800 border-green-300" : ""
+                          }`}
+                        >
+                          {idx + 1}
+                        </Button>
+                      ))}
+                    </div>
+
+                    {currentQuestionIndex === practiceSampleQuestions.length - 1 ? (
+                      <Button
+                        onClick={submitPractice}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        Submit Practice
+                      </Button>
+                    ) : (
+                      <Button onClick={goToNextQuestion} className="bg-blue-600 hover:bg-blue-700">
+                        Next →
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-700">
+                    <p>
+                      <strong>Category:</strong> {selectedTestForPractice.category} |{" "}
+                      <strong>Difficulty:</strong> {selectedTestForPractice.difficulty}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>
