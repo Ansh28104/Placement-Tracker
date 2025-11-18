@@ -133,6 +133,10 @@ export default function InterviewsPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [modeFilter, setModeFilter] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false)
+  const [selectedInterviewId, setSelectedInterviewId] = useState<number | null>(null)
+  const [feedbackText, setFeedbackText] = useState("")
+  const [feedbackResult, setFeedbackResult] = useState<"passed" | "failed" | "pending">("pending")
   const [newInterview, setNewInterview] = useState({
     company: "",
     position: "",
@@ -283,6 +287,52 @@ export default function InterviewsPage() {
       title: "Status updated!",
       description: `Interview marked as ${newStatus}.`,
     })
+  }
+
+  const openFeedbackDialog = (interviewId: number) => {
+    const interview = interviews.find((i) => i.id === interviewId)
+    if (interview) {
+      setSelectedInterviewId(interviewId)
+      setFeedbackText(interview.feedback)
+      setFeedbackResult(interview.result || "pending")
+      setIsFeedbackDialogOpen(true)
+    }
+  }
+
+  const handleSaveFeedback = () => {
+    if (!selectedInterviewId) return
+
+    if (!feedbackText.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter feedback before saving.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setInterviews(
+      interviews.map((interview) =>
+        interview.id === selectedInterviewId
+          ? {
+              ...interview,
+              feedback: feedbackText,
+              result: feedbackResult,
+              status: interview.status === "scheduled" ? "completed" : interview.status,
+            }
+          : interview,
+      ),
+    )
+
+    toast({
+      title: "Feedback saved!",
+      description: "Interview feedback has been updated successfully.",
+    })
+
+    setIsFeedbackDialogOpen(false)
+    setFeedbackText("")
+    setFeedbackResult("pending")
+    setSelectedInterviewId(null)
   }
 
   const stats = {
@@ -632,7 +682,11 @@ export default function InterviewsPage() {
                           </>
                         )}
                       </div>
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openFeedbackDialog(interview.id)}
+                      >
                         <MessageSquare className="w-4 h-4 mr-1" />
                         Add Feedback
                       </Button>
@@ -660,8 +714,82 @@ export default function InterviewsPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Feedback Dialog */}
+          <Dialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Add Interview Feedback</DialogTitle>
+              </DialogHeader>
+              {selectedInterviewId && (
+                <div className="space-y-4">
+                  {/* Interview Info */}
+                  {(() => {
+                    const interview = interviews.find((i) => i.id === selectedInterviewId)
+                    return interview ? (
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-600">
+                          <span className="font-medium text-gray-900">{interview.company}</span> - {interview.position}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">Type: {interview.type.replace("-", " ")}</p>
+                      </div>
+                    ) : null
+                  })()}
+
+                  {/* Result Selection */}
+                  <div>
+                    <Label htmlFor="result">Interview Result</Label>
+                    <Select value={feedbackResult} onValueChange={(value) => setFeedbackResult(value as "passed" | "failed" | "pending")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="passed">Passed</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Feedback Text */}
+                  <div>
+                    <Label htmlFor="feedback">Feedback</Label>
+                    <Textarea
+                      id="feedback"
+                      value={feedbackText}
+                      onChange={(e) => setFeedbackText(e.target.value)}
+                      placeholder="Add your feedback here... What went well? What could be improved? Any specific points discussed?"
+                      rows={5}
+                      className="resize-none"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">{feedbackText.length}/500 characters</p>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsFeedbackDialogOpen(false)
+                        setFeedbackText("")
+                        setFeedbackResult("pending")
+                        setSelectedInterviewId(null)
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSaveFeedback}>
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Save Feedback
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>
   )
 }
+
