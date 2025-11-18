@@ -427,7 +427,7 @@ export default function AptitudePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+      <div className="max-w-full p-4 sm:p-6 lg:p-8">
         <div className="space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -530,8 +530,8 @@ export default function AptitudePage() {
             </Dialog>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+          {/* Stats Cards - Horizontally Scrollable */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 lg:grid-cols-7 gap-4">
             <Card>
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold">{stats.total}</p>
@@ -664,8 +664,8 @@ export default function AptitudePage() {
             </CardContent>
           </Card>
 
-          {/* Tests List */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Tests List - Responsive Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 w-full">
             {filteredTests.map((test) => (
               <Card key={test.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-3">
