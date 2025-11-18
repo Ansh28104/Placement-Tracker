@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Building2, Code, Brain, FileText, MessageSquare, TrendingUp, Trophy } from "lucide-react"
+import { Building2, Code, Brain, FileText, MessageSquare, TrendingUp, Trophy, Zap, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/components/auth-provider"
 import {
@@ -28,10 +28,12 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [stats, setStats] = useState({
     applications: { total: 25, applied: 15, inProgress: 6, cleared: 2, rejected: 2 },
-    coding: { totalProblems: 450, solved: 287, easy: 120, medium: 140, hard: 27 },
-    aptitude: { totalTopics: 12, completed: 8, avgScore: 78 },
-    interviews: { total: 8, scheduled: 2, completed: 6 },
+    coding: { totalProblems: 450, solved: 287, easy: 120, medium: 140, hard: 27, completed: 287, inProgress: 120, todo: 43 },
+    aptitude: { totalTopics: 12, completed: 8, avgScore: 78, totalTests: 5, passedTests: 4 },
+    interviews: { total: 8, scheduled: 2, completed: 6, withFeedback: 4 },
+    resume: { total: 4, active: 2, draft: 1, archived: 1, avgAtsScore: 85 },
     streak: 15,
+    lastUpdated: new Date().toLocaleDateString(),
   })
 
   const applicationStatusData = [
@@ -47,14 +49,20 @@ export default function Dashboard() {
     { name: "Hard", solved: stats.coding.hard, total: 50 },
   ]
 
+  const codingStatusData = [
+    { name: "Completed", value: stats.coding.completed, color: "#00C49F" },
+    { name: "In Progress", value: stats.coding.inProgress, color: "#FFBB28" },
+    { name: "Todo", value: stats.coding.todo, color: "#D3D3D3" },
+  ]
+
   const weeklyProgressData = [
-    { day: "Mon", problems: 8, aptitude: 2 },
-    { day: "Tue", problems: 12, aptitude: 3 },
-    { day: "Wed", problems: 6, aptitude: 1 },
-    { day: "Thu", problems: 15, aptitude: 4 },
-    { day: "Fri", problems: 10, aptitude: 2 },
-    { day: "Sat", problems: 18, aptitude: 5 },
-    { day: "Sun", problems: 14, aptitude: 3 },
+    { day: "Mon", problems: 8, aptitude: 2, interviews: 0 },
+    { day: "Tue", problems: 12, aptitude: 3, interviews: 1 },
+    { day: "Wed", problems: 6, aptitude: 1, interviews: 0 },
+    { day: "Thu", problems: 15, aptitude: 4, interviews: 2 },
+    { day: "Fri", problems: 10, aptitude: 2, interviews: 1 },
+    { day: "Sat", problems: 18, aptitude: 5, interviews: 0 },
+    { day: "Sun", problems: 14, aptitude: 3, interviews: 1 },
   ]
 
   const recentActivities = [
@@ -69,15 +77,22 @@ export default function Dashboard() {
     {
       type: "interview",
       company: "Microsoft",
-      action: "Technical Interview Scheduled",
+      action: "Technical Interview Completed",
       time: "1 day ago",
-      status: "scheduled",
+      status: "completed",
+      feedback: "Good problem-solving approach",
     },
     {
       type: "aptitude",
       topic: "Logical Reasoning",
-      action: "Completed Practice Test",
+      action: "Completed Practice Test - 85%",
       time: "2 days ago",
+      status: "completed",
+    },
+    {
+      type: "resume",
+      action: "Updated Resume - ATS Score: 92/100",
+      time: "3 days ago",
       status: "completed",
     },
   ]
@@ -134,7 +149,7 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
@@ -202,10 +217,26 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Resume ATS Score</p>
+                  <p className="text-xl sm:text-2xl font-bold text-purple-600">{stats.resume.avgAtsScore}</p>
+                </div>
+                <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Badge className={getStatusBadge("completed")}>{stats.resume.active} Active</Badge>
+                <Badge className={getStatusBadge("inProgress")}>{stats.resume.draft} Drafts</Badge>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Application Status Chart */}
           <Card>
             <CardHeader>
@@ -255,6 +286,35 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          {/* Coding Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Problem Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-48 sm:h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={codingStatusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={30}
+                      outerRadius={60}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {codingStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Weekly Progress */}
           <Card>
             <CardHeader>
@@ -268,8 +328,8 @@ export default function Dashboard() {
                     <XAxis dataKey="day" />
                     <YAxis />
                     <Tooltip />
-                    <Line type="monotone" dataKey="problems" stroke="#8884d8" strokeWidth={2} />
-                    <Line type="monotone" dataKey="aptitude" stroke="#82ca9d" strokeWidth={2} />
+                    <Line type="monotone" dataKey="problems" stroke="#8884d8" strokeWidth={2} name="Problems" />
+                    <Line type="monotone" dataKey="aptitude" stroke="#82ca9d" strokeWidth={2} name="Aptitude" />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -384,15 +444,23 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {recentActivities.map((activity, index) => (
-                <div key={`${activity.type}-${activity.time}-${index}`} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                  <div className={`w-3 h-3 rounded-full ${getStatusColor(activity.status)}`} />
+                <div key={`${activity.type}-${activity.time}-${index}`} className="flex items-start space-x-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className={`w-3 h-3 rounded-full mt-1 flex-shrink-0 ${getStatusColor(activity.status)}`} />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{activity.action}</p>
                     <p className="text-sm text-gray-600 truncate">
                       {activity.company || activity.platform || activity.topic} • {activity.time}
                     </p>
+                    {activity.feedback && (
+                      <p className="text-sm text-blue-600 mt-1 truncate">
+                        <CheckCircle className="w-3 h-3 inline mr-1" />
+                        Feedback: {activity.feedback}
+                      </p>
+                    )}
                   </div>
-                  <Badge className={getStatusBadge(activity.status)}>{activity.status}</Badge>
+                  <Badge className={getStatusBadge(activity.status)} className="flex-shrink-0">
+                    {activity.status}
+                  </Badge>
                 </div>
               ))}
             </div>
