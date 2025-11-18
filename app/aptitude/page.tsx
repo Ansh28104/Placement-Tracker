@@ -170,6 +170,12 @@ export default function AptitudePage() {
     }
   }
 
+  // Safe number conversion utility
+  const safeNumber = (value: any, defaultValue: number = 0): number => {
+    const num = Number(value)
+    return Number.isNaN(num) ? defaultValue : num
+  }
+
   const filteredTests = tests.filter((test) => {
     const matchesSearch = test.title.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = categoryFilter === "all" || test.category === categoryFilter
@@ -179,13 +185,34 @@ export default function AptitudePage() {
   })
 
   const handleAddTest = () => {
+    const totalQuestions = Number.parseInt(newTest.totalQuestions) || 0
+    const maxTime = Number.parseInt(newTest.maxTime) || 0
+
+    if (!newTest.title.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a test title.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (totalQuestions <= 0 || maxTime <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter valid number of questions and max time.",
+        variant: "destructive",
+      })
+      return
+    }
+
     const test: AptitudeTest = {
       ...newTest,
       id: tests.length + 1,
       category: newTest.category as "quantitative" | "logical" | "verbal" | "general",
       difficulty: newTest.difficulty as "easy" | "medium" | "hard",
-      totalQuestions: Number.parseInt(newTest.totalQuestions),
-      maxTime: Number.parseInt(newTest.maxTime),
+      totalQuestions,
+      maxTime,
       correctAnswers: 0,
       timeSpent: 0,
       score: 0,
@@ -234,11 +261,11 @@ export default function AptitudePage() {
     avgScore:
       tests.filter((t) => t.status === "completed").length > 0
         ? Math.round(
-            tests.filter((t) => t.status === "completed").reduce((acc, t) => acc + t.score, 0) /
+            tests.filter((t) => t.status === "completed").reduce((acc, t) => acc + safeNumber(t.score), 0) /
               tests.filter((t) => t.status === "completed").length,
           )
         : 0,
-    totalTime: tests.reduce((acc, t) => acc + t.timeSpent, 0),
+    totalTime: tests.reduce((acc, t) => acc + safeNumber(t.timeSpent), 0),
     quantitative: tests.filter((t) => t.category === "quantitative" && t.status === "completed").length,
     logical: tests.filter((t) => t.category === "logical" && t.status === "completed").length,
     verbal: tests.filter((t) => t.category === "verbal" && t.status === "completed").length,
@@ -516,7 +543,7 @@ export default function AptitudePage() {
                       </Badge>
                       {test.status === "completed" && (
                         <div className="text-right">
-                          <p className="text-lg font-bold text-green-600">{test.score}%</p>
+                          <p className="text-lg font-bold text-green-600">{safeNumber(test.score)}%</p>
                           <p className="text-xs text-gray-600">Score</p>
                         </div>
                       )}
@@ -527,25 +554,25 @@ export default function AptitudePage() {
                         <p className="text-gray-600">Questions</p>
                         <p className="font-medium">
                           {test.status === "completed"
-                            ? `${test.correctAnswers}/${test.totalQuestions}`
-                            : test.totalQuestions}
+                            ? `${safeNumber(test.correctAnswers)}/${safeNumber(test.totalQuestions)}`
+                            : `${safeNumber(test.totalQuestions)}`}
                         </p>
                       </div>
                       <div>
                         <p className="text-gray-600">Time</p>
                         <p className="font-medium">
-                          {test.timeSpent > 0 ? `${test.timeSpent}/${test.maxTime} min` : `${test.maxTime} min`}
+                          {test.timeSpent > 0 ? `${safeNumber(test.timeSpent)}/${safeNumber(test.maxTime)} min` : `${safeNumber(test.maxTime)} min`}
                         </p>
                       </div>
                     </div>
 
-                    {test.status === "completed" && test.totalQuestions > 0 && (
+                    {test.status === "completed" && safeNumber(test.totalQuestions) > 0 && (
                       <div>
                         <div className="flex justify-between text-sm mb-1">
                           <span>Accuracy</span>
-                          <span>{Math.round((test.correctAnswers / test.totalQuestions) * 100)}%</span>
+                          <span>{Math.round((safeNumber(test.correctAnswers) / safeNumber(test.totalQuestions)) * 100)}%</span>
                         </div>
-                        <Progress value={(test.correctAnswers / test.totalQuestions) * 100} className="h-2" />
+                        <Progress value={(safeNumber(test.correctAnswers) / safeNumber(test.totalQuestions)) * 100} className="h-2" />
                       </div>
                     )}
 
