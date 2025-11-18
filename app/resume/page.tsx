@@ -22,6 +22,10 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
+  Zap,
+  TrendingUp,
+  Check,
+  X,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -41,6 +45,26 @@ interface Resume {
   notes: string
   fileName?: string
   fileData?: string
+  atsScore?: number
+  atsAnalysis?: ATSAnalysis
+}
+
+interface ATSAnalysis {
+  score: number
+  issues: ATSIssue[]
+  suggestions: string[]
+  keywords: string[]
+  formatting: {
+    hasSimpleFormatting: boolean
+    hasStandardSections: boolean
+    hasContactInfo: boolean
+    hasMetrics: boolean
+  }
+}
+
+interface ATSIssue {
+  type: "error" | "warning" | "info"
+  message: string
 }
 
 export default function ResumePage() {
@@ -59,6 +83,7 @@ export default function ResumePage() {
       downloadCount: 12,
       fileSize: "245 KB",
       notes: "Main resume template with comprehensive experience",
+      atsScore: 85,
     },
     {
       id: 2,
@@ -74,6 +99,7 @@ export default function ResumePage() {
       downloadCount: 3,
       fileSize: "238 KB",
       notes: "Customized for Google application with emphasis on scalability projects",
+      atsScore: 92,
     },
     {
       id: 3,
@@ -89,6 +115,7 @@ export default function ResumePage() {
       downloadCount: 1,
       fileSize: "251 KB",
       notes: "Focus on frontend technologies and user interface projects",
+      atsScore: 78,
     },
     {
       id: 4,
@@ -103,6 +130,7 @@ export default function ResumePage() {
       downloadCount: 8,
       fileSize: "189 KB",
       notes: "Minimalist template for quick customization",
+      atsScore: 88,
     },
   ])
 
@@ -112,6 +140,7 @@ export default function ResumePage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragActive, setIsDragActive] = useState(false)
+  const [selectedAtsResume, setSelectedAtsResume] = useState<number | null>(null)
   const [newResume, setNewResume] = useState({
     title: "",
     type: "tailored",
@@ -119,6 +148,111 @@ export default function ResumePage() {
     company: "",
     notes: "",
   })
+
+  // ATS Analysis function
+  const analyzeResumeForATS = (resume: Resume): ATSAnalysis => {
+    const issues: ATSIssue[] = []
+    const suggestions: string[] = []
+    const keywords: string[] = []
+    let score = 100
+
+    // Check for contact information
+    if (!resume.fileName && !resume.notes) {
+      issues.push({ type: "error", message: "Missing contact information section" })
+      score -= 15
+    } else {
+      keywords.push("contact_info")
+    }
+
+    // Check for metrics and quantifiable achievements
+    const notes = resume.notes.toLowerCase()
+    const hasMetrics = /\b\d+%|\$\d+|\d+x|improved|increased|decreased|reduced/i.test(notes)
+    if (!hasMetrics) {
+      suggestions.push("Add quantifiable metrics and achievements (e.g., 'Improved performance by 40%')")
+      score -= 10
+    } else {
+      keywords.push("metrics")
+    }
+
+    // Check for standard sections
+    const standardSections = ["experience", "education", "skills", "projects"]
+    const hasSections = standardSections.some((section) => notes.includes(section.toLowerCase()))
+    if (!hasSections) {
+      suggestions.push("Ensure resume includes standard sections: Experience, Education, Skills, Projects")
+      score -= 10
+    } else {
+      keywords.push("standard_sections")
+    }
+
+    // Check for technical keywords
+    const techKeywords = [
+      "python",
+      "java",
+      "javascript",
+      "typescript",
+      "react",
+      "nodejs",
+      "sql",
+      "api",
+      "aws",
+      "git",
+      "agile",
+    ]
+    const foundTechKeywords = techKeywords.filter((keyword) => notes.includes(keyword.toLowerCase()))
+    if (foundTechKeywords.length === 0) {
+      suggestions.push("Add relevant technical keywords based on job description (Python, Java, React, AWS, etc.)")
+      score -= 5
+    }
+    keywords.push(...foundTechKeywords)
+
+    // Check for action verbs
+    const actionVerbs = [
+      "developed",
+      "implemented",
+      "designed",
+      "led",
+      "managed",
+      "optimized",
+      "engineered",
+      "created",
+      "built",
+    ]
+    const hasActionVerbs = actionVerbs.some((verb) => notes.includes(verb.toLowerCase()))
+    if (!hasActionVerbs) {
+      suggestions.push("Use strong action verbs at the beginning of bullet points (Developed, Implemented, Designed, etc.)")
+      score -= 5
+    }
+
+    // Check file size and formatting
+    if (resume.fileSize.includes("MB") || parseInt(resume.fileSize) > 1000) {
+      issues.push({ type: "warning", message: "File size is large - keep resume under 1 MB for better ATS parsing" })
+      score -= 5
+    }
+
+    // Formatting checks
+    const formatting = {
+      hasSimpleFormatting: true,
+      hasStandardSections: hasSections,
+      hasContactInfo: !!(resume.fileName || resume.notes),
+      hasMetrics: hasMetrics,
+    }
+
+    // ATS-friendly format tips
+    if (!notes.includes("objective") && !notes.includes("summary")) {
+      suggestions.push("Consider adding a Professional Summary or Objective section")
+      score -= 3
+    }
+
+    score = Math.max(0, Math.min(100, score))
+
+    return {
+      score,
+      issues,
+      suggestions,
+      keywords: [...new Set(keywords)],
+      formatting,
+    }
+  }
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -215,6 +349,11 @@ export default function ResumePage() {
       fileName: selectedFile.name,
     }
 
+    // Perform ATS analysis
+    const atsAnalysis = analyzeResumeForATS(resume)
+    resume.atsScore = atsAnalysis.score
+    resume.atsAnalysis = atsAnalysis
+
     setResumes([...resumes, resume])
     setNewResume({
       title: "",
@@ -227,7 +366,7 @@ export default function ResumePage() {
     setIsAddDialogOpen(false)
     toast({
       title: "Resume added!",
-      description: `${selectedFile.name} has been uploaded successfully.`,
+      description: `${selectedFile.name} uploaded. ATS Score: ${atsAnalysis.score}/100`,
     })
   }
 
@@ -350,6 +489,10 @@ export default function ResumePage() {
     template: resumes.filter((r) => r.type === "template").length,
     avgRating:
       resumes.length > 0 ? Math.round((resumes.reduce((acc, r) => acc + r.rating, 0) / resumes.length) * 10) / 10 : 0,
+    avgAtsScore:
+      resumes.length > 0
+        ? Math.round((resumes.reduce((acc, r) => acc + (r.atsScore || 0), 0) / resumes.length) * 10) / 10
+        : 0,
   }
 
   return (
@@ -496,7 +639,7 @@ export default function ResumePage() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 gap-4">
             <Card>
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold">{stats.total}</p>
@@ -543,6 +686,15 @@ export default function ResumePage() {
               <CardContent className="p-4 text-center">
                 <p className="text-lg font-bold text-orange-600">{stats.avgRating}</p>
                 <p className="text-sm text-gray-600">Avg Rating</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <p className="text-lg font-bold text-purple-600 flex items-center justify-center">
+                  <Zap className="w-4 h-4 mr-1" />
+                  {stats.avgAtsScore}
+                </p>
+                <p className="text-sm text-gray-600">Avg ATS</p>
               </CardContent>
             </Card>
           </div>
@@ -632,6 +784,23 @@ export default function ResumePage() {
                       </div>
                     </div>
 
+                    {/* ATS Score Display */}
+                    {resume.atsScore && (
+                      <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+                        <div className="flex items-center space-x-2">
+                          <Zap className="w-5 h-5 text-purple-600" />
+                          <div>
+                            <p className="text-sm font-semibold text-purple-900">ATS Score</p>
+                            <p className="text-xs text-purple-700">Applicant Tracking System compatibility</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-purple-600">{resume.atsScore}</p>
+                          <p className="text-xs text-purple-600">/100</p>
+                        </div>
+                      </div>
+                    )}
+
                     {resume.fileName && (
                       <div className="flex items-center text-sm text-gray-600 bg-blue-50 p-2 rounded">
                         <FileText className="w-4 h-4 mr-2 text-blue-600" />
@@ -676,9 +845,14 @@ export default function ResumePage() {
                           <Eye className="w-4 h-4 mr-1" />
                           Preview
                         </Button>
-                        <Button variant="outline" size="sm">
-                          <Edit className="w-4 h-4 mr-1" />
-                          Edit
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedAtsResume(resume.id)}
+                          className="text-purple-600 hover:text-purple-700"
+                        >
+                          <Zap className="w-4 h-4 mr-1" />
+                          ATS Check
                         </Button>
                       </div>
                       <div className="flex space-x-2">
@@ -715,6 +889,170 @@ export default function ResumePage() {
                 </Button>
               </CardContent>
             </Card>
+          )}
+
+          {/* ATS Analysis Dialog */}
+          {selectedAtsResume && (
+            <Dialog open={!!selectedAtsResume} onOpenChange={(open) => !open && setSelectedAtsResume(null)}>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-purple-600" />
+                    ATS Analysis Report
+                  </DialogTitle>
+                </DialogHeader>
+                {(() => {
+                  const selectedResume = resumes.find((r) => r.id === selectedAtsResume)
+                  if (!selectedResume) return null
+
+                  const analysis = selectedResume.atsAnalysis || analyzeResumeForATS(selectedResume)
+
+                  const getScoreColor = (score: number) => {
+                    if (score >= 80) return "text-green-600"
+                    if (score >= 60) return "text-yellow-600"
+                    return "text-red-600"
+                  }
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Score Card */}
+                      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border-2 border-purple-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-gray-600 mb-2">Overall ATS Compatibility Score</p>
+                            <p className={`text-4xl font-bold ${getScoreColor(analysis.score)}`}>{analysis.score}/100</p>
+                          </div>
+                          <div className="w-24 h-24 rounded-full bg-white border-4 border-purple-300 flex items-center justify-center">
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-purple-600">{analysis.score}%</p>
+                              <p className="text-xs text-gray-600">Compatible</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Formatting Checks */}
+                      <div>
+                        <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                          <TrendingUp className="w-5 h-5 text-blue-600" />
+                          Formatting Checks
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {[
+                            {
+                              label: "Standard Sections",
+                              value: analysis.formatting.hasStandardSections,
+                            },
+                            { label: "Contact Info", value: analysis.formatting.hasContactInfo },
+                            {
+                              label: "Quantified Metrics",
+                              value: analysis.formatting.hasMetrics,
+                            },
+                            {
+                              label: "Simple Formatting",
+                              value: analysis.formatting.hasSimpleFormatting,
+                            },
+                          ].map((check, idx) => (
+                            <div
+                              key={idx}
+                              className={`p-3 rounded-lg border-2 flex items-center gap-2 ${
+                                check.value
+                                  ? "bg-green-50 border-green-200"
+                                  : "bg-red-50 border-red-200"
+                              }`}
+                            >
+                              {check.value ? (
+                                <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <X className="w-5 h-5 text-red-600 flex-shrink-0" />
+                              )}
+                              <span className={check.value ? "text-green-700" : "text-red-700"}>
+                                {check.label}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Issues */}
+                      {analysis.issues.length > 0 && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                            <AlertCircle className="w-5 h-5 text-red-600" />
+                            Issues Found
+                          </h3>
+                          <div className="space-y-2">
+                            {analysis.issues.map((issue, idx) => (
+                              <div
+                                key={idx}
+                                className={`p-3 rounded-lg border-l-4 ${
+                                  issue.type === "error"
+                                    ? "bg-red-50 border-red-400 text-red-700"
+                                    : issue.type === "warning"
+                                      ? "bg-yellow-50 border-yellow-400 text-yellow-700"
+                                      : "bg-blue-50 border-blue-400 text-blue-700"
+                                }`}
+                              >
+                                {issue.message}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Suggestions */}
+                      {analysis.suggestions.length > 0 && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                            <Zap className="w-5 h-5 text-yellow-600" />
+                            Improvement Suggestions
+                          </h3>
+                          <ul className="space-y-2">
+                            {analysis.suggestions.map((suggestion, idx) => (
+                              <li key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                                <span className="text-yellow-600 font-bold mt-1">•</span>
+                                <span className="text-gray-700">{suggestion}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Keywords */}
+                      {analysis.keywords.length > 0 && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-3">Detected Keywords</h3>
+                          <div className="flex flex-wrap gap-2">
+                            {analysis.keywords.map((keyword, idx) => (
+                              <Badge
+                                key={idx}
+                                className="bg-green-100 text-green-800 hover:bg-green-200"
+                              >
+                                <Check className="w-3 h-3 mr-1" />
+                                {keyword}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Info Box */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="text-sm text-blue-700">
+                          <strong>💡 Tip:</strong> ATS systems parse resumes to extract relevant information. A higher score
+                          indicates better compatibility with automated systems. Aim for scores above 75 for optimal
+                          results.
+                        </p>
+                      </div>
+
+                      <Button onClick={() => setSelectedAtsResume(null)} className="w-full">
+                        Close
+                      </Button>
+                    </div>
+                  )
+                })()}
+              </DialogContent>
+            </Dialog>
           )}
         </div>
       </div>
