@@ -89,3 +89,44 @@ export interface AptitudeTest {
   duration: number
   createdAt?: Date
 }
+
+// Resume
+export interface Resume {
+  _id?: string
+  userId: string
+  title: string
+  version: string
+  type: "master" | "tailored" | "template"
+  targetRole: string
+  company?: string
+  lastModified: string
+  status: "active" | "draft" | "archived"
+  feedback: string[]
+  rating: number
+  downloadCount: number
+  fileSize: string
+  notes: string
+  fileName?: string
+  fileData?: string
+  atsScore?: number
+  atsAnalysis?: ATSAnalysis
+  createdAt?: Date
+}
+
+export interface ATSAnalysis {
+  score: number
+  issues: ATSIssue[]
+  suggestions: string[]
+  keywords: string[]
+  formatting: {
+    hasSimpleFormatting: boolean
+    hasStandardSections: boolean
+    hasContactInfo: boolean
+    hasMetrics: boolean
+  }
+}
+
+export interface ATSIssue {
+  type: "error" | "warning" | "info"
+  message: string
+}
